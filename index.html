@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#05070d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><title>Saber Duel AR</title><link rel="icon" href="data:,">
+<style>
+*{box-sizing:border-box;margin:0;user-select:none;-webkit-user-select:none;touch-action:none}
+html,body{height:100%;background:#05070d;color:#e8f0ff;font:15px system-ui,sans-serif;overflow:hidden}
+body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+video,canvas{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}
+.hud{position:fixed;left:0;right:0;pointer-events:none;padding:8px 12px;z-index:3}
+#top{top:env(safe-area-inset-top)}#bot{bottom:calc(env(safe-area-inset-bottom) + 6px);display:flex;gap:10px;align-items:flex-end;justify-content:space-between}
+.bar{height:9px;border-radius:5px;background:#0008;overflow:hidden;margin:3px 0}.bar i{display:block;height:100%;width:100%;transition:width .1s}
+#ohp{background:#f44}#hp{background:#4f6}#sta{background:#fc3}#frc{background:#6af}
+.lv{letter-spacing:3px;color:#f55;font-size:18px}
+.btn{pointer-events:auto;border:0;border-radius:50%;width:72px;height:72px;font-weight:700;color:#fff;background:#1c2b55cc;border:2px solid #6af8;font-size:13px}
+.btn:active{background:#37f}
+#toast{position:fixed;top:32%;left:0;right:0;text-align:center;font-size:30px;font-weight:800;letter-spacing:2px;text-shadow:0 0 12px #000;z-index:4;pointer-events:none;opacity:0;transition:opacity .2s}
+#menu{position:fixed;inset:0;z-index:9;background:radial-gradient(#0d1a3a,#04060c);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center}
+#menu h1{font-size:34px;letter-spacing:4px;text-shadow:0 0 18px #4af}
+#menu button,#menu input{font-size:18px;padding:13px 20px;border-radius:10px;border:2px solid #4af;background:#0b1633;color:#fff;width:260px;text-align:center;text-transform:uppercase;user-select:text;-webkit-user-select:text}
+#menu button{background:#16b;font-weight:700}#menu button.alt{background:#0b1633}
+.cols{display:flex;gap:12px}.cols b{width:38px;height:38px;border-radius:50%;border:3px solid #fff3}.cols b.on{border-color:#fff}
+small{opacity:.75;max-width:320px;line-height:1.4}
+</style></head><body>
+<video id="vid" playsinline muted autoplay></video>
+<canvas id="cv"></canvas>
+<div class="hud" id="top"><div style="display:flex;justify-content:space-between"><span>OPPONENT <small id="png"></small></span><span class="lv" id="olv"></span></div><div class="bar"><i id="ohp"></i></div></div>
+<div class="hud" id="bot">
+ <button class="btn" id="dodge">DODGE<br>25</button>
+ <div style="flex:1;max-width:46%"><div class="lv" id="lv" style="color:#4f6"></div><div class="bar"><i id="hp"></i></div><div class="bar"><i id="sta"></i></div><div class="bar"><i id="frc"></i></div></div>
+ <button class="btn" id="push">PUSH<br>40</button>
+</div>
+<div id="toast"></div>
+<div id="menu">
+ <h1>SABER DUEL</h1>
+ <div id="mob">
+  <div class="cols" id="cols" style="justify-content:center;margin-bottom:10px"></div>
+  <button id="quick">⚡ Quick Match</button><div style="height:10px"></div>
+  <button id="host" class="alt">Host private duel</button><div style="height:10px"></div>
+  <input id="code" maxlength="4" placeholder="Room code" autocomplete="off"><div style="height:10px"></div>
+  <button id="join" class="alt">Join with code</button>
+ </div>
+ <p id="msg"></p>
+ <button id="cancel" style="display:none">Cancel</button>
+ <small id="how">Point your camera at your opponent. Drag to aim your blade. Swipe fast OR flick your phone to strike. Keep the reticle on your opponent or you’ll miss. Hold your blade across their incoming strike to block (perfect timing stuns them). 3 lives each. Push stuns, Dodge evades.</small>
+</div>
+<script>
+const $=i=>document.getElementById(i),cv=$('cv'),g=cv.getContext('2d'),now=()=>performance.now();
+const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&matchMedia('(pointer:coarse)').matches);
+let W,H,dpr=Math.min(2,devicePixelRatio||1);
+function rs(){W=cv.width=innerWidth*dpr;H=cv.height=innerHeight*dpr}addEventListener('resize',rs);rs();
+const COLS=['#38f','#3e6','#f33','#b4f'];let col=COLS[0];
+COLS.forEach((c,i)=>{const b=document.createElement('b');b.style.background=c;if(!i)b.className='on';b.onclick=()=>{col=c;[...$('cols').children].forEach(x=>x.className='');b.className='on'};$('cols').appendChild(b)});
+if(!mobile){$('mob').style.display='none';$('msg').textContent='This duel needs a phone camera. Open this page on your mobile device.'}
+const S={hp:100,lives:3,sta:100,frc:60,th:0,stun:0,inv:0,atk:0,ad:0,down:0,cd:0,pcd:0},O={hp:100,lives:3,th:0,col:'#f33',atk:0,ad:0,here:false,seen:0};
+let hasCam=false,tk=0,playing=false,ended=false,flash=0,pend=null,send=()=>{},parts=[],AC,lastSt=0;
+const code4=()=>Array.from({length:4},()=>'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.random()*23|0]).join('');
+// ---------- audio ----------
+function snd(f1,f2,d,type,v){if(!AC)return;const o=AC.createOscillator(),a=AC.createGain();o.type=type;o.frequency.setValueAtTime(f1,AC.currentTime);o.frequency.exponentialRampToValueAtTime(f2,AC.currentTime+d);a.gain.setValueAtTime(v,AC.currentTime);a.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(a).connect(AC.destination);o.start();o.stop(AC.currentTime+d)}
+function hum(){const o=AC.createOscillator(),a=AC.createGain();o.type='sawtooth';o.frequency.value=70;a.gain.value=.025;o.connect(a).connect(AC.destination);o.start()}
+const vib=n=>navigator.vibrate&&navigator.vibrate(n);
+function toast(t,c){const e=$('toast');e.textContent=t;e.style.color=c||'#fff';e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,900)}
+// ---------- network: many rooms at once, strictly 1v1 ----------
+const ICE={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},{urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}]}};
+let P=null,conn=null,lastAtk=0,lastPush=0,myRm=0,opRm=0;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,+v||0));
+function loadPeer(){return window.Peer?0:new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';s.onload=ok;s.onerror=()=>no(new Error('lib'));document.head.appendChild(s)})}
+const mk=id=>{const p=id?new Peer(id,ICE):new Peer(ICE);p.on('disconnected',()=>{try{p.reconnect()}catch(e){}});return p};
+const opened=p=>Promise.race([new Promise((ok,no)=>{p.on('open',ok);p.on('error',no)}),sleep(9000).then(()=>{throw new Error('sig')})]);
+function wire(c){conn=c;send=d=>{if(c.open)try{c.send(d)}catch(e){}};c.on('data',recv);c.on('close',()=>{if(conn===c)lost()})}
+function dial(p,id){return new Promise(res=>{let d=0;const c=p.connect(id,{reliable:true}),f=v=>{if(d)return;d=1;if(!v)try{c.close()}catch(e){}res(v?c:0)};
+ c.on('open',()=>setTimeout(()=>f(c.open),700));c.on('close',()=>f(0));c.on('error',()=>f(0));p.on('error',e=>{if(e.type=='peer-unavailable')f(0)});setTimeout(()=>f(0),6000)})}
+function claim(i,ms){return new Promise(res=>{const p=mk('sdq-'+i);P=p;let d=0;const f=v=>{if(d)return;d=1;if(v!=1)try{p.destroy()}catch(e){}res(v)};
+ p.on('open',()=>setTimeout(()=>f(2),ms));
+ p.on('connection',c=>c.on('open',()=>{if(d||conn){c.close();return}wire(c);f(1)}));
+ p.on('error',e=>f(e.type=='unavailable-id'?0:2))})}
+// serverless matchmaking: scan 8 queue slots for a waiting player, else wait in a free slot, then rescan
+async function quick(){await loadPeer();
+ for(;;){P=mk();await opened(P);
+  for(let i=0;i<8;i++){const c=await dial(P,'sdq-'+i);if(c){wire(c);return}}
+  try{P.destroy()}catch(e){}
+  const ms=4000+Math.random()*5000;
+  for(let i=0;i<8;i++){const r=await claim(i,ms);if(r==1)return;if(r==2)break}}}
+async function connect(mode,code){
+ if(window.claude){try{const room=await claude.use('room');if(room){const r=await room.join('sd-'+code);r.on('m',e=>{if(!e.isMe)recv(e.data)});send=d=>r.emit('m',d).catch(()=>{});return}}catch(e){}}
+ if(mode=='quick')return quick();
+ await loadPeer();
+ if(mode=='host'){P=mk('sd-'+code);await new Promise((ok,no)=>{P.on('connection',c=>c.on('open',()=>{if(conn){c.close();return}wire(c);ok()}));P.on('error',no)});return}
+ P=mk();await opened(P);const c=await dial(P,'sd-'+code);if(!c)throw new Error('none');wire(c)}
+function lost(){if(!O.here)return;if(!ended)end(true,'Opponent disconnected');else{const b=$('rm');if(b){b.disabled=true;b.textContent='Opponent left'}}}
+function tryRm(){if(myRm&&opRm){myRm=opRm=0;reset();countdown()}}
+function recv(d){if(!d||typeof d!=='object')return;const t=now();O.seen=t;
+ switch(d.t){
+ case'hi':O.col=/^#[0-9a-f]{3}$/.test(d.c)?d.c:'#f33';if(!d.ack)send({t:'hi',c:col,ack:1});if(!O.here){O.here=true;countdown()}break;
+ case'st':O.hp=clamp(d.hp,0,100);O.lives=clamp(d.lv,0,3);O.th=clamp(d.th,-100,100);break;
+ case'atk':if(t-lastAtk<500)break;lastAtk=t;if(d.m){toast('Whiff! They missed','#6af');break}
+  if(playing&&!S.down){const dd=clamp(d.d,-180,180);O.atk=t+450;O.ad=dd;pend=-dd;setTimeout(()=>resolve(pend),450);snd(400,120,.25,'sawtooth',.06)}break;
+ case'res':feedback(d.r);break;
+ case'push':if(t-lastPush<4000)break;lastPush=t;if(t>S.inv&&playing){S.stun=t+1200;S.sta=Math.max(0,S.sta-20);toast('FORCE PUSH!','#6af');vib([60,30,60]);snd(200,40,.4,'sine',.3)}break;
+ case'dead':if(O.lives<=1)end(true);break;
+ case'rm':opRm=1;tryRm();break;
+ case'p':send({t:'q',n:d.n});break;
+ case'q':$('png').textContent=Math.round(now()-d.n)+'ms';break}}
+// ---------- combat ----------
+function strike(d){const t=now();if(t<S.cd||t<S.stun||S.sta<15||S.down)return;S.cd=t+700;S.sta-=15;S.atk=t+450;S.ad=d;const m=aimed()?0:1;send({t:'atk',d,m});if(m)toast('MISSED! Aim at them','#fc3');snd(500,100,.3,'sawtooth',.08);vib(15)}
+function resolve(dd){if(!playing||S.down||dd==null)return;pend=null;const t=now();
+ if(t<S.inv){send({t:'res',r:'dodge'});toast('DODGED!','#6af');return}
+ const b=((S.th%180)+180)%180,need=(((dd+90)%180)+180)%180;let diff=Math.abs(b-need);diff=Math.min(diff,180-diff);
+ if(t<S.stun||S.sta<=0)diff=99;
+ if(diff<18){send({t:'res',r:'perf'});S.frc=Math.min(100,S.frc+15);spark(.5,.6,40,'#fff');toast('PERFECT PARRY!','#fe6');snd(1200,300,.25,'square',.12);vib(30)}
+ else if(diff<42){S.sta=Math.max(0,S.sta-18);send({t:'res',r:'block'});spark(.5,.6,20,'#ff9');toast('BLOCKED','#ff9');snd(900,200,.2,'square',.1);vib(20)}
+ else{hurt(S.sta<=0?12:22)}}
+function hurt(n){S.hp-=n;flash=1;vib(120);send({t:'res',r:'hit'});snd(150,40,.4,'sawtooth',.2);toast('HIT!','#f55');if(S.hp<=0)down()}
+function down(){S.lives--;S.hp=0;S.down=now()+3000;send(st());
+ if(S.lives<=0){send({t:'dead'});end(false);return}
+ toast('YOU FELL! Respawning…','#f55');setTimeout(()=>{if(ended)return;S.hp=100;S.sta=100;S.frc=60;S.down=0;S.inv=now()+1500},3000)}
+function feedback(r){if(r=='perf'){S.stun=now()+1000;S.atk=0;toast('PARRIED! Staggered','#f93');vib(80)}else if(r=='block'){spark(T.x,T.y,14,'#ff9');snd(800,200,.15,'square',.08)}else if(r=='hit'){spark(T.x,T.y,30,'#f66');toast('HIT!','#4f6');vib(30)}else if(r=='dodge')toast('They dodged!','#6af')}
+$('push').onpointerdown=e=>{e.stopPropagation();const t=now();if(!playing||S.down||t<S.stun||S.frc<40||t<S.pcd)return;S.frc-=40;S.pcd=t+5000;send({t:'push'});spark(T.x,T.y,25,'#6af');snd(300,50,.4,'sine',.3);vib(50)};
+$('dodge').onpointerdown=e=>{e.stopPropagation();const t=now();if(!playing||S.down||S.frc<25||t<S.inv)return;S.frc-=25;S.inv=t+600;toast('DODGE','#6af')};
+const st=()=>({t:'st',hp:S.hp,lv:S.lives,th:S.th});
+// ---------- input ----------
+let drag=false,lx=0,ly=0,lt=0;
+cv.onpointerdown=e=>{drag=true;lx=e.clientX;ly=e.clientY;lt=now();aim(e)};
+cv.onpointerup=cv.onpointercancel=()=>drag=false;
+cv.onpointermove=e=>{if(!drag)return;aim(e);const t=now(),dt=t-lt;if(dt<16)return;const vx=(e.clientX-lx)/dt,vy=(e.clientY-ly)/dt;
+ if(Math.hypot(vx,vy)>1.6&&playing)strike(Math.atan2(vx,-vy)*180/Math.PI);lx=e.clientX;ly=e.clientY;lt=t};
+function aim(e){const dx=e.clientX-innerWidth/2,dy=e.clientY-innerHeight*.9;S.th=Math.max(-100,Math.min(100,Math.atan2(dx,-dy)*180/Math.PI))}
+// ---------- opponent tracking: motion centroid from the camera feed (no external model) ----------
+const tc=document.createElement('canvas'),tx=tc.getContext('2d',{willReadFrequently:true});tc.width=48;tc.height=64;
+let prev=null,T={x:.5,y:.55,s:1,ok:false,t:0};
+const aimed=()=>!hasCam||!T.ok||Math.abs(T.x-.5)<.28;
+function track(){const v=$('vid');if(!v.videoWidth)return;tx.drawImage(v,0,0,48,64);const d=tx.getImageData(0,0,48,64).data,n=3072,cur=new Uint8Array(n);
+ for(let i=0;i<n;i++)cur[i]=(d[i*4]+d[i*4+1]+d[i*4+2])/3;
+ if(prev){let sx=0,sy=0,c=0;for(let i=0;i<n;i++)if(Math.abs(cur[i]-prev[i])>28){sx+=i%48;sy+=(i/48|0);c++}
+  if(c/n>.45){}/* camera is moving: hold last position */
+  else if(c>25){T.x+=(sx/c/48-T.x)*.35;T.y+=(sy/c/64-T.y)*.35;T.s+=(Math.min(1.6,Math.max(.6,Math.sqrt(c/n)*5))-T.s)*.2;T.ok=true;T.t=now()}
+  else if(now()-T.t>2500)T.ok=false}
+ prev=cur}
+// ---------- render ----------
+function spark(x,y,n,c){for(let i=0;i<n;i++)parts.push({x:x*W,y:y*H,vx:(Math.random()-.5)*14*dpr,vy:(Math.random()-.8)*12*dpr,l:1,c})}
+function blade(x,y,len,deg,c,w,gl){const a=deg*Math.PI/180,s=Math.sin(a),k=Math.cos(a),tx=x+s*len,ty=y-k*len;g.save();g.lineCap='round';
+ g.strokeStyle='#8889';g.lineWidth=w*1.7;g.beginPath();g.moveTo(x,y);g.lineTo(x-s*len*.2,y+k*len*.2);g.stroke();
+ g.shadowColor=c;g.shadowBlur=30*gl*dpr;g.strokeStyle=c;g.lineWidth=w*2.4;g.beginPath();g.moveTo(x,y);g.lineTo(tx,ty);g.stroke();
+ g.shadowBlur=8;g.strokeStyle='#fff';g.lineWidth=w*.9;g.stroke();g.restore()}
+function frame(){const t=now();g.clearRect(0,0,W,H);
+ if(playing){S.sta=Math.min(100,S.sta+.2);S.frc=Math.min(100,S.frc+.1);if(t-lastSt>120){lastSt=t;send(st())}
+  if(O.here&&t-O.seen>7000){end(true,'Opponent left')}}
+ // opponent saber (anchored where you aim your camera)
+ if(hasCam&&t-tk>100){tk=t;track()}if(O.here){const ox=T.x*W,oy=Math.min(.75,Math.max(.35,T.y))*H+H*.04;blade(ox,oy,H*.26*T.s,-O.th,O.col,4*dpr,1);
+  if(t<O.atk){const a=(-O.ad)*Math.PI/180,dx=Math.sin(a)*W*.4,dy=-Math.cos(a)*W*.4,p=1-(O.atk-t)/450;g.save();g.strokeStyle=`rgba(255,60,60,${.25+p*.6})`;g.lineWidth=14*dpr;g.lineCap='round';g.beginPath();g.moveTo(ox-dx,oy-dy);g.lineTo(ox+dx,oy+dy);g.stroke();
+   if(pend!=null){const b=((S.th%180)+180)%180,need=(((pend+90)%180)+180)%180;let d=Math.abs(b-need);d=Math.min(d,180-d);g.strokeStyle=d<18?'#fe6':d<42?'#4f6':'#fff5';g.lineWidth=4*dpr;g.beginPath();g.arc(W/2,H*.9,70*dpr,0,7);g.stroke()}g.restore()}}
+ if(playing){g.save();g.strokeStyle=aimed()?'#4f6':'#fc3';g.globalAlpha=.7;g.lineWidth=2*dpr;g.beginPath();g.arc(W/2,H*.5,26*dpr,0,7);g.moveTo(W/2-38*dpr,H*.5);g.lineTo(W/2+38*dpr,H*.5);g.moveTo(W/2,H*.5-38*dpr);g.lineTo(W/2,H*.5+38*dpr);g.stroke();g.restore()}
+ // own saber
+ if(!S.down){const sw=t<S.atk,j=t<S.stun?(Math.random()-.5)*8:0;blade(W/2,H*.9,H*.5,S.th+j,col,6*dpr,sw?2.2:1)}
+ parts=parts.filter(p=>p.l>0);for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.vy+=.4*dpr;p.l-=.03;g.globalAlpha=Math.max(0,p.l);g.fillStyle=p.c;g.fillRect(p.x,p.y,3*dpr,3*dpr)}g.globalAlpha=1;
+ if(flash>0){g.fillStyle=`rgba(255,0,0,${flash*.4})`;g.fillRect(0,0,W,H);flash-=.04}
+ if(S.down){g.fillStyle='#000a';g.fillRect(0,0,W,H)}
+ $('hp').style.width=Math.max(0,S.hp)+'%';$('sta').style.width=S.sta+'%';$('frc').style.width=S.frc+'%';$('ohp').style.width=Math.max(0,O.hp)+'%';
+ $('lv').textContent='♥'.repeat(Math.max(0,S.lives));$('olv').textContent='♥'.repeat(Math.max(0,O.lives));
+ requestAnimationFrame(frame)}
+// ---------- flow ----------
+function reset(){Object.assign(S,{hp:100,lives:3,sta:100,frc:60,stun:0,inv:0,atk:0,down:0,cd:0,pcd:0});Object.assign(O,{hp:100,lives:3});ended=false;playing=false;pend=null;flash=0}
+function countdown(){$('menu').style.display='none';let n=3;const iv=setInterval(()=>{if(n>0){toast(n--,'#fff')}else{clearInterval(iv);toast('FIGHT!','#fe6');playing=true;O.seen=now()}},900)}
+function end(win,why){if(ended)return;ended=true;playing=false;$('menu').style.display='flex';$('mob').style.display='none';$('cancel').style.display='none';
+ $('msg').innerHTML=(why?why+'<br>':'')+`<b style="font-size:30px;color:${win?'#4f6':'#f55'}">${win?'VICTORY':'DEFEAT'}</b><br><br><button id="rm">Rematch</button><br><br><button id="lvb" class="alt">Leave</button>`;
+ $('rm').onclick=()=>{myRm=1;$('rm').disabled=true;$('rm').textContent='Waiting for opponent…';send({t:'rm'});tryRm()};$('lvb').onclick=()=>location.reload()}
+async function begin(mode){
+ let code=mode=='host'?code4():$('code').value.trim().toUpperCase();
+ if(mode=='join'&&code.length!=4){$('msg').textContent='Enter the 4-letter room code';return}
+ $('mob').style.display='none';$('cancel').style.display='block';
+ AC=new(window.AudioContext||window.webkitAudioContext)();hum();
+ try{if(DeviceMotionEvent.requestPermission)await DeviceMotionEvent.requestPermission()}catch(e){}
+ addEventListener('devicemotion',e=>{const r=e.rotationRate;if(!r||!playing)return;const gm=r.gamma||0,bt=r.beta||0;if(Math.hypot(gm,bt)>320)strike(Math.atan2(gm,bt)*180/Math.PI)});
+ try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});$('vid').srcObject=s;hasCam=true}catch(e){document.body.style.background='radial-gradient(#1a2a4a,#05070d)';toast('No camera: virtual arena','#fc3')}
+ try{document.documentElement.requestFullscreen&&await document.documentElement.requestFullscreen();screen.orientation.lock('portrait').catch(()=>{})}catch(e){}
+ try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
+ for(let k=0;k<4;k++){
+  $('msg').innerHTML=mode=='host'?`Room code: <b style="font-size:28px">${code}</b><br>Waiting for opponent…`:mode=='quick'?'Searching for an opponent…':'Connecting…';
+  try{await connect(mode,code);break}catch(e){
+   if(mode=='host'&&e&&e.type=='unavailable-id'&&k<3){code=code4();continue}
+   $('msg').textContent=mode=='join'?'No room found with that code.':'Could not reach the matchmaking server. Check your connection and try again.';$('cancel').textContent='Back';return}}
+ $('cancel').style.display='none';
+ const iv=setInterval(()=>{if(O.here)return clearInterval(iv);send({t:'hi',c:col})},1000);send({t:'hi',c:col});
+ setInterval(()=>{if(O.here)send({t:'p',n:now()})},2000)}
+$('quick').onclick=()=>begin('quick');$('host').onclick=()=>begin('host');$('join').onclick=()=>begin('join');$('cancel').onclick=()=>location.reload();
+if(window.claude)$('quick').style.display='none';
+frame();
+</script></body></html>
