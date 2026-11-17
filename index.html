@@ -9,14 +9,14 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
 video,canvas{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}
 .hud{position:fixed;left:0;right:0;pointer-events:none;padding:8px 12px;z-index:3}
 #top{top:env(safe-area-inset-top)}#bot{bottom:calc(env(safe-area-inset-bottom) + 6px);display:flex;gap:10px;align-items:flex-end;justify-content:space-between}
-.bar{height:9px;border-radius:5px;background:#0008;overflow:hidden;margin:3px 0}.bar i{display:block;height:100%;width:100%;transition:width .1s}
-#ohp{background:#f44}#hp{background:#4f6}#sta{background:#fc3}#frc{background:#6af}
+.bar{height:10px;border-radius:6px;background:#0009;border:1px solid #fff3;overflow:hidden;margin:3px 0;box-shadow:0 0 8px #000a}.bar i{display:block;height:100%;width:100%;transition:width .1s}
+#ohp{background:linear-gradient(90deg,#a11,#f55)}#hp{background:linear-gradient(90deg,#1a4,#5f8)}#sta{background:linear-gradient(90deg,#b80,#fd4)}#frc{background:linear-gradient(90deg,#26c,#7bf)}
 .lv{letter-spacing:3px;color:#f55;font-size:18px}
 .btn{pointer-events:auto;border:0;border-radius:50%;width:72px;height:72px;font-weight:700;color:#fff;background:#1c2b55cc;border:2px solid #6af8;font-size:13px}
 .btn:active{background:#37f}
 #toast{position:fixed;top:32%;left:0;right:0;text-align:center;font-size:30px;font-weight:800;letter-spacing:2px;text-shadow:0 0 12px #000;z-index:4;pointer-events:none;opacity:0;transition:opacity .2s}
-#menu{position:fixed;inset:0;z-index:9;background:radial-gradient(#0d1a3a,#04060c);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center}
-#menu h1{font-size:34px;letter-spacing:4px;text-shadow:0 0 18px #4af}
+#menu{position:fixed;inset:0;z-index:9;background:radial-gradient(1.5px 1.5px at 20% 30%,#fff9,#0000),radial-gradient(1.5px 1.5px at 70% 20%,#fff9,#0000),radial-gradient(2px 2px at 40% 80%,#fff8,#0000),radial-gradient(1.5px 1.5px at 85% 65%,#fff9,#0000),radial-gradient(#10224a,#04060c);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center}
+#menu h1{font-size:38px;letter-spacing:5px;background:linear-gradient(#fff,#6af);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 14px #48f)}
 #menu button,#menu input{font-size:18px;padding:13px 20px;border-radius:10px;border:2px solid #4af;background:#0b1633;color:#fff;width:260px;text-align:center;text-transform:uppercase;user-select:text;-webkit-user-select:text}
 #menu button{background:#16b;font-weight:700}#menu button.alt{background:#0b1633}
 .cols{display:flex;gap:12px}.cols b{width:38px;height:38px;border-radius:50%;border:3px solid #fff3}.cols b.on{border-color:#fff}
@@ -27,7 +27,7 @@ small{opacity:.75;max-width:320px;line-height:1.4}
 <div class="hud" id="top"><div style="display:flex;justify-content:space-between"><span>OPPONENT <small id="png"></small></span><span class="lv" id="olv"></span></div><div class="bar"><i id="ohp"></i></div></div>
 <div class="hud" id="bot">
  <button class="btn" id="dodge">DODGE<br>25</button>
- <div style="flex:1;max-width:46%"><div class="lv" id="lv" style="color:#4f6"></div><div class="bar"><i id="hp"></i></div><div class="bar"><i id="sta"></i></div><div class="bar"><i id="frc"></i></div></div>
+ <div style="flex:1;max-width:46%"><div class="lv" id="lv" style="color:#4f6"></div><div class="bar"><i id="hp"></i></div><div class="bar"><i id="sta"></i></div><div class="bar"><i id="frc"></i></div><div id="stat" style="font-size:12px;font-weight:700;height:15px;text-shadow:0 0 6px #000"></div></div>
  <button class="btn" id="push">PUSH<br>40</button>
 </div>
 <div id="toast"></div>
@@ -38,11 +38,11 @@ small{opacity:.75;max-width:320px;line-height:1.4}
   <button id="quick">⚡ Quick Match</button><div style="height:10px"></div>
   <button id="host" class="alt">Host private duel</button><div style="height:10px"></div>
   <input id="code" maxlength="4" placeholder="Room code" autocomplete="off"><div style="height:10px"></div>
-  <button id="join" class="alt">Join with code</button>
+  <button id="join" class="alt">Join with code</button><div style="height:10px"></div><button id="prac" class="alt">Practice vs bot</button><div style="height:6px"></div><button id="lvl" class="alt" style="padding:8px;font-size:14px">Bot: Normal</button>
  </div>
  <p id="msg"></p>
  <button id="cancel" style="display:none">Cancel</button>
- <small id="how">Point your camera at your opponent. Drag to aim your blade. Swipe fast OR flick your phone to strike. Keep the reticle on your opponent or you’ll miss. Hold your blade across their incoming strike to block (perfect timing stuns them). 3 lives each. Push stuns, Dodge evades.</small>
+ <small id="how">Point your camera at your opponent. Drag to aim your blade. Swipe fast OR flick your phone to strike. Keep the reticle on your opponent or you’ll miss. Hold your blade across their incoming strike to block. A perfect parry stuns them and unlocks a RIPOSTE: your next strike hits 60% harder. 3 lives each. Push stuns, Dodge evades.</small>
 </div>
 <script>
 const $=i=>document.getElementById(i),cv=$('cv'),g=cv.getContext('2d'),now=()=>performance.now();
@@ -57,12 +57,14 @@ let hasCam=false,tk=0,playing=false,ended=false,flash=0,pend=null,send=()=>{},pa
 const code4=()=>Array.from({length:4},()=>'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.random()*23|0]).join('');
 // ---------- audio ----------
 function snd(f1,f2,d,type,v){if(!AC)return;const o=AC.createOscillator(),a=AC.createGain();o.type=type;o.frequency.setValueAtTime(f1,AC.currentTime);o.frequency.exponentialRampToValueAtTime(f2,AC.currentTime+d);a.gain.setValueAtTime(v,AC.currentTime);a.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(a).connect(AC.destination);o.start();o.stop(AC.currentTime+d)}
-function hum(){const o=AC.createOscillator(),a=AC.createGain();o.type='sawtooth';o.frequency.value=70;a.gain.value=.025;o.connect(a).connect(AC.destination);o.start()}
+let HM=null,IG=1,igT=0;
+function nz(d,v){if(!AC)return;const n=AC.sampleRate*d|0,b=AC.createBuffer(1,n,AC.sampleRate),a=b.getChannelData(0);for(let i=0;i<n;i++)a[i]=(Math.random()*2-1)*(1-i/n);const s=AC.createBufferSource(),g2=AC.createGain();s.buffer=b;g2.gain.value=v;s.connect(g2).connect(AC.destination);s.start()}
+function hum(){const o=AC.createOscillator(),a=AC.createGain();o.type='sawtooth';o.frequency.value=70;HM=o;a.gain.value=.025;o.connect(a).connect(AC.destination);o.start()}
 const vib=n=>navigator.vibrate&&navigator.vibrate(n);
 function toast(t,c){const e=$('toast');e.textContent=t;e.style.color=c||'#fff';e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,900)}
 // ---------- network: many rooms at once, strictly 1v1 ----------
 const ICE={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},{urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}]}};
-let P=null,conn=null,lastAtk=0,lastPush=0,myRm=0,opRm=0;
+let pw=1,P=null,conn=null,lastAtk=0,lastPush=0,myRm=0,opRm=0;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,+v||0));
 function loadPeer(){return window.Peer?0:new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';s.onload=ok;s.onerror=()=>no(new Error('lib'));document.head.appendChild(s)})}
@@ -95,7 +97,7 @@ function recv(d){if(!d||typeof d!=='object')return;const t=now();O.seen=t;
  case'hi':O.col=/^#[0-9a-f]{3}$/.test(d.c)?d.c:'#f33';if(!d.ack)send({t:'hi',c:col,ack:1});if(!O.here){O.here=true;countdown()}break;
  case'st':O.hp=clamp(d.hp,0,100);O.lives=clamp(d.lv,0,3);O.th=clamp(d.th,-100,100);break;
  case'atk':if(t-lastAtk<500)break;lastAtk=t;if(d.m){toast('Whiff! They missed','#6af');break}
-  if(playing&&!S.down){const dd=clamp(d.d,-180,180);O.atk=t+450;O.ad=dd;pend=-dd;setTimeout(()=>resolve(pend),450);snd(400,120,.25,'sawtooth',.06)}break;
+  if(playing&&!S.down){const dd=clamp(d.d,-180,180);pw=clamp(d.p,1,1.6);O.atk=t+450;O.ad=dd;pend=-dd;setTimeout(()=>resolve(pend),450);snd(400,120,.25,'sawtooth',.06)}break;
  case'res':feedback(d.r);break;
  case'push':if(t-lastPush<4000)break;lastPush=t;if(t>S.inv&&playing){S.stun=t+1200;S.sta=Math.max(0,S.sta-20);toast('FORCE PUSH!','#6af');vib([60,30,60]);snd(200,40,.4,'sine',.3)}break;
  case'dead':if(O.lives<=1)end(true);break;
@@ -103,19 +105,19 @@ function recv(d){if(!d||typeof d!=='object')return;const t=now();O.seen=t;
  case'p':send({t:'q',n:d.n});break;
  case'q':$('png').textContent=Math.round(now()-d.n)+'ms';break}}
 // ---------- combat ----------
-function strike(d){const t=now();if(t<S.cd||t<S.stun||S.sta<15||S.down)return;S.cd=t+700;S.sta-=15;S.atk=t+450;S.ad=d;const m=aimed()?0:1;send({t:'atk',d,m});if(m)toast('MISSED! Aim at them','#fc3');snd(500,100,.3,'sawtooth',.08);vib(15)}
+function strike(d){const t=now();if(t<S.cd||t<S.stun||S.sta<15||S.down)return;S.cd=t+700;S.sta-=15;S.atk=t+450;S.ad=d;const m=aimed()?0:1,p=t<S.rip?1.6:1;S.rip=0;send({t:'atk',d,m,p});if(p>1)toast('RIPOSTE!','#fe6');if(m)toast('MISSED! Aim at them','#fc3');snd(500,100,.3,'sawtooth',.08);vib(15)}
 function resolve(dd){if(!playing||S.down||dd==null)return;pend=null;const t=now();
  if(t<S.inv){send({t:'res',r:'dodge'});toast('DODGED!','#6af');return}
  const b=((S.th%180)+180)%180,need=(((dd+90)%180)+180)%180;let diff=Math.abs(b-need);diff=Math.min(diff,180-diff);
  if(t<S.stun||S.sta<=0)diff=99;
- if(diff<18){send({t:'res',r:'perf'});S.frc=Math.min(100,S.frc+15);spark(.5,.6,40,'#fff');toast('PERFECT PARRY!','#fe6');snd(1200,300,.25,'square',.12);vib(30)}
- else if(diff<42){S.sta=Math.max(0,S.sta-18);send({t:'res',r:'block'});spark(.5,.6,20,'#ff9');toast('BLOCKED','#ff9');snd(900,200,.2,'square',.1);vib(20)}
- else{hurt(S.sta<=0?12:22)}}
-function hurt(n){S.hp-=n;flash=1;vib(120);send({t:'res',r:'hit'});snd(150,40,.4,'sawtooth',.2);toast('HIT!','#f55');if(S.hp<=0)down()}
+ if(diff<18){send({t:'res',r:'perf'});S.frc=Math.min(100,S.frc+15);S.rip=t+1500;spark(.5,.6,40,'#fff');ring(.5,.6,'#fff');toast('PERFECT PARRY!','#fe6');snd(1200,300,.25,'square',.12);nz(.2,.25);vib(30)}
+ else if(diff<42){S.sta=Math.max(0,S.sta-18*pw);send({t:'res',r:'block'});spark(.5,.6,20,'#ff9');ring(.5,.6,'#ff9');toast('BLOCKED','#ff9');snd(900,200,.2,'square',.1);nz(.12,.15);vib(20)}
+ else{hurt((S.sta<=0?12:22)*pw)}}
+function hurt(n){S.hp-=n;flt('-'+Math.round(n),.5,.75,'#f55');flash=1;vib(120);send({t:'res',r:'hit'});snd(150,40,.4,'sawtooth',.2);nz(.25,.3);toast('HIT!','#f55');if(S.hp<=0)down()}
 function down(){S.lives--;S.hp=0;S.down=now()+3000;send(st());
  if(S.lives<=0){send({t:'dead'});end(false);return}
  toast('YOU FELL! Respawning…','#f55');setTimeout(()=>{if(ended)return;S.hp=100;S.sta=100;S.frc=60;S.down=0;S.inv=now()+1500},3000)}
-function feedback(r){if(r=='perf'){S.stun=now()+1000;S.atk=0;toast('PARRIED! Staggered','#f93');vib(80)}else if(r=='block'){spark(T.x,T.y,14,'#ff9');snd(800,200,.15,'square',.08)}else if(r=='hit'){spark(T.x,T.y,30,'#f66');toast('HIT!','#4f6');vib(30)}else if(r=='dodge')toast('They dodged!','#6af')}
+function feedback(r){if(r=='perf'){S.stun=now()+1000;S.atk=0;toast('PARRIED! Staggered','#f93');vib(80)}else if(r=='block'){spark(T.x,T.y,14,'#ff9');ring(T.x,T.y,'#ff9');snd(800,200,.15,'square',.08)}else if(r=='hit'){spark(T.x,T.y,30,'#f66');ring(T.x,T.y,'#f66');toast('HIT!','#4f6');vib(30)}else if(r=='dodge')toast('They dodged!','#6af')}
 $('push').onpointerdown=e=>{e.stopPropagation();const t=now();if(!playing||S.down||t<S.stun||S.frc<40||t<S.pcd)return;S.frc-=40;S.pcd=t+5000;send({t:'push'});spark(T.x,T.y,25,'#6af');snd(300,50,.4,'sine',.3);vib(50)};
 $('dodge').onpointerdown=e=>{e.stopPropagation();const t=now();if(!playing||S.down||S.frc<25||t<S.inv)return;S.frc-=25;S.inv=t+600;toast('DODGE','#6af')};
 const st=()=>({t:'st',hp:S.hp,lv:S.lives,th:S.th});
@@ -129,7 +131,7 @@ function aim(e){const dx=e.clientX-innerWidth/2,dy=e.clientY-innerHeight*.9;S.th
 // ---------- opponent tracking: motion centroid from the camera feed (no external model) ----------
 const tc=document.createElement('canvas'),tx=tc.getContext('2d',{willReadFrequently:true});tc.width=48;tc.height=64;
 let prev=null,T={x:.5,y:.55,s:1,ok:false,t:0};
-const aimed=()=>!hasCam||!T.ok||Math.abs(T.x-.5)<.28;
+const aimed=()=>botOn||!hasCam||!T.ok||Math.abs(T.x-.5)<.28;
 function track(){const v=$('vid');if(!v.videoWidth)return;tx.drawImage(v,0,0,48,64);const d=tx.getImageData(0,0,48,64).data,n=3072,cur=new Uint8Array(n);
  for(let i=0;i<n;i++)cur[i]=(d[i*4]+d[i*4+1]+d[i*4+2])/3;
  if(prev){let sx=0,sy=0,c=0;for(let i=0;i<n;i++)if(Math.abs(cur[i]-prev[i])>28){sx+=i%48;sy+=(i/48|0);c++}
@@ -138,33 +140,52 @@ function track(){const v=$('vid');if(!v.videoWidth)return;tx.drawImage(v,0,0,48,
   else if(now()-T.t>2500)T.ok=false}
  prev=cur}
 // ---------- render ----------
+let rings=[],floats=[];
+function ring(x,y,c){rings.push({x:x*W,y:y*H,r:10*dpr,l:1,c})}
+function flt(txt,x,y,c){floats.push({x:x*W,y:y*H,l:1,txt,c})}
 function spark(x,y,n,c){for(let i=0;i<n;i++)parts.push({x:x*W,y:y*H,vx:(Math.random()-.5)*14*dpr,vy:(Math.random()-.8)*12*dpr,l:1,c})}
-function blade(x,y,len,deg,c,w,gl){const a=deg*Math.PI/180,s=Math.sin(a),k=Math.cos(a),tx=x+s*len,ty=y-k*len;g.save();g.lineCap='round';
- g.strokeStyle='#8889';g.lineWidth=w*1.7;g.beginPath();g.moveTo(x,y);g.lineTo(x-s*len*.2,y+k*len*.2);g.stroke();
- g.shadowColor=c;g.shadowBlur=30*gl*dpr;g.strokeStyle=c;g.lineWidth=w*2.4;g.beginPath();g.moveTo(x,y);g.lineTo(tx,ty);g.stroke();
+function blade(x,y,len,deg,c,w,gl){const a=deg*Math.PI/180,s=Math.sin(a),k=Math.cos(a),tx=x+s*len*IG,ty=y-k*len*IG;g.save();g.lineCap='round';
+ const hx=x-s*len*.22,hy=y+k*len*.22;g.strokeStyle='#2a2d36';g.lineWidth=w*2.1;g.beginPath();g.moveTo(x,y);g.lineTo(hx,hy);g.stroke();g.strokeStyle='#aab';g.lineWidth=w*2.5;g.beginPath();g.moveTo(x,y);g.lineTo(x-s*len*.03,y+k*len*.03);g.stroke();g.strokeStyle='#6b7080';g.lineWidth=w*2.2;for(let i=1;i<4;i++){g.beginPath();g.moveTo(x-s*len*(.04+i*.04),y+k*len*(.04+i*.04));g.lineTo(x-s*len*(.045+i*.04),y+k*len*(.045+i*.04));g.stroke()}
+ const A=g.globalAlpha;g.shadowColor=c;g.shadowBlur=40*gl*dpr;g.strokeStyle=c;g.globalAlpha=A*.3;g.lineWidth=w*6;g.beginPath();g.moveTo(x,y);g.lineTo(tx,ty);g.stroke();g.globalAlpha=A;g.lineWidth=w*2.4;g.stroke();
  g.shadowBlur=8;g.strokeStyle='#fff';g.lineWidth=w*.9;g.stroke();g.restore()}
-function frame(){const t=now();g.clearRect(0,0,W,H);
+function frame(){const t=now();g.clearRect(0,0,W,H);g.save();if(flash>.3)g.translate((Math.random()-.5)*16*dpr*flash,(Math.random()-.5)*16*dpr*flash);if(igT){IG=Math.min(1,(t-igT)/450);IG=1-Math.pow(1-IG,3)}else IG=.1;if(HM)HM.frequency.value=70+(t<S.atk?35:0);
  if(playing){S.sta=Math.min(100,S.sta+.2);S.frc=Math.min(100,S.frc+.1);if(t-lastSt>120){lastSt=t;send(st())}
   if(O.here&&t-O.seen>7000){end(true,'Opponent left')}}
  // opponent saber (anchored where you aim your camera)
- if(hasCam&&t-tk>100){tk=t;track()}if(O.here){const ox=T.x*W,oy=Math.min(.75,Math.max(.35,T.y))*H+H*.04;blade(ox,oy,H*.26*T.s,-O.th,O.col,4*dpr,1);
+ if(hasCam&&!botOn&&t-tk>100){tk=t;track()}if(O.here){const ox=T.x*W,oy=Math.min(.75,Math.max(.35,T.y))*H+H*.04;blade(ox,oy,H*.26*T.s,-O.th,O.col,4*dpr,1);
   if(t<O.atk){const a=(-O.ad)*Math.PI/180,dx=Math.sin(a)*W*.4,dy=-Math.cos(a)*W*.4,p=1-(O.atk-t)/450;g.save();g.strokeStyle=`rgba(255,60,60,${.25+p*.6})`;g.lineWidth=14*dpr;g.lineCap='round';g.beginPath();g.moveTo(ox-dx,oy-dy);g.lineTo(ox+dx,oy+dy);g.stroke();
    if(pend!=null){const b=((S.th%180)+180)%180,need=(((pend+90)%180)+180)%180;let d=Math.abs(b-need);d=Math.min(d,180-d);g.strokeStyle=d<18?'#fe6':d<42?'#4f6':'#fff5';g.lineWidth=4*dpr;g.beginPath();g.arc(W/2,H*.9,70*dpr,0,7);g.stroke()}g.restore()}}
  if(playing){g.save();g.strokeStyle=aimed()?'#4f6':'#fc3';g.globalAlpha=.7;g.lineWidth=2*dpr;g.beginPath();g.arc(W/2,H*.5,26*dpr,0,7);g.moveTo(W/2-38*dpr,H*.5);g.lineTo(W/2+38*dpr,H*.5);g.moveTo(W/2,H*.5-38*dpr);g.lineTo(W/2,H*.5+38*dpr);g.stroke();g.restore()}
  // own saber
- if(!S.down){const sw=t<S.atk,j=t<S.stun?(Math.random()-.5)*8:0;blade(W/2,H*.9,H*.5,S.th+j,col,6*dpr,sw?2.2:1)}
+ if(!S.down){const sw=t<S.atk,j=t<S.stun?(Math.random()-.5)*8:0;if(sw)for(let k=1;k<5;k++){g.globalAlpha=.2/k;blade(W/2,H*.9,H*.5,S.th-Math.sin(S.ad*Math.PI/180)*k*12,col,6*dpr,1)}g.globalAlpha=1;blade(W/2,H*.9,H*.5,S.th+j,col,6*dpr,sw?2.2:1)}
  parts=parts.filter(p=>p.l>0);for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.vy+=.4*dpr;p.l-=.03;g.globalAlpha=Math.max(0,p.l);g.fillStyle=p.c;g.fillRect(p.x,p.y,3*dpr,3*dpr)}g.globalAlpha=1;
+ rings=rings.filter(r=>r.l>0);for(const r of rings){r.r+=9*dpr;r.l-=.06;g.strokeStyle=r.c;g.globalAlpha=Math.max(0,r.l);g.lineWidth=4*dpr;g.beginPath();g.arc(r.x,r.y,r.r,0,7);g.stroke()}
+ floats=floats.filter(f=>f.l>0);for(const f of floats){f.y-=1.5*dpr;f.l-=.02;g.globalAlpha=Math.max(0,f.l);g.fillStyle=f.c;g.font=`800 ${26*dpr}px system-ui`;g.textAlign='center';g.fillText(f.txt,f.x,f.y)}g.globalAlpha=1;
+ if(playing&&S.hp<30&&!S.down){const a=.15+.12*Math.sin(t/180),gr=g.createRadialGradient(W/2,H/2,H*.25,W/2,H/2,H*.75);gr.addColorStop(0,'rgba(255,0,0,0)');gr.addColorStop(1,`rgba(255,0,0,${a*2})`);g.fillStyle=gr;g.fillRect(0,0,W,H)}
  if(flash>0){g.fillStyle=`rgba(255,0,0,${flash*.4})`;g.fillRect(0,0,W,H);flash-=.04}
  if(S.down){g.fillStyle='#000a';g.fillRect(0,0,W,H)}
- $('hp').style.width=Math.max(0,S.hp)+'%';$('sta').style.width=S.sta+'%';$('frc').style.width=S.frc+'%';$('ohp').style.width=Math.max(0,O.hp)+'%';
+ g.restore();$('hp').style.width=Math.max(0,S.hp)+'%';$('sta').style.width=S.sta+'%';$('frc').style.width=S.frc+'%';$('ohp').style.width=Math.max(0,O.hp)+'%';$('push').style.opacity=(S.frc>=40&&t>S.pcd)?1:.4;$('dodge').style.opacity=(S.frc>=25&&t>S.inv)?1:.4;$('stat').textContent=S.down?'DOWN - respawning':t<S.stun?'STUNNED':t<S.rip?'RIPOSTE READY x1.6':S.sta<20?'LOW STAMINA':'';$('stat').style.color=t<S.rip?'#fe6':'#f96';
  $('lv').textContent='♥'.repeat(Math.max(0,S.lives));$('olv').textContent='♥'.repeat(Math.max(0,O.lives));
  requestAnimationFrame(frame)}
 // ---------- flow ----------
-function reset(){Object.assign(S,{hp:100,lives:3,sta:100,frc:60,stun:0,inv:0,atk:0,down:0,cd:0,pcd:0});Object.assign(O,{hp:100,lives:3});ended=false;playing=false;pend=null;flash=0}
-function countdown(){$('menu').style.display='none';let n=3;const iv=setInterval(()=>{if(n>0){toast(n--,'#fff')}else{clearInterval(iv);toast('FIGHT!','#fe6');playing=true;O.seen=now()}},900)}
+function reset(){Object.assign(S,{hp:100,lives:3,sta:100,frc:60,stun:0,inv:0,atk:0,down:0,cd:0,pcd:0});Object.assign(O,{hp:100,lives:3});ended=false;playing=false;pend=null;flash=0;igT=0}
+function countdown(){$('menu').style.display='none';let n=3;const iv=setInterval(()=>{if(n>0){toast(n--,'#fff')}else{clearInterval(iv);toast('FIGHT!','#fe6');playing=true;O.seen=now();igT=now();snd(80,700,.5,'sawtooth',.12);vib(40)}},900)}
 function end(win,why){if(ended)return;ended=true;playing=false;$('menu').style.display='flex';$('mob').style.display='none';$('cancel').style.display='none';
  $('msg').innerHTML=(why?why+'<br>':'')+`<b style="font-size:30px;color:${win?'#4f6':'#f55'}">${win?'VICTORY':'DEFEAT'}</b><br><br><button id="rm">Rematch</button><br><br><button id="lvb" class="alt">Leave</button>`;
  $('rm').onclick=()=>{myRm=1;$('rm').disabled=true;$('rm').textContent='Waiting for opponent…';send({t:'rm'});tryRm()};$('lvb').onclick=()=>location.reload()}
+// ---------- practice bot: plays locally through the same message pipeline ----------
+let lvl=1,botOn=false;const B={hp:100,lives:3,stun:0,at:0};
+function botDown(){B.lives--;B.hp=0;if(B.lives<=0){recv({t:'st',hp:0,lv:0,th:0});recv({t:'dead'})}else setTimeout(()=>{B.hp=100},3000)}
+function bot(d){const t=now();
+ switch(d.t){
+ case'hi':setTimeout(()=>recv({t:'hi',c:'#f33',ack:1}),300);break;
+ case'push':B.stun=t+1200;break;
+ case'rm':B.hp=100;B.lives=3;B.stun=0;recv({t:'rm'});break;
+ case'res':if(d.r=='perf')B.stun=t+1000;break;
+ case'atk':if(d.m||B.hp<=0)break;setTimeout(()=>{const r=now()<B.stun?1:Math.random();
+  const L=[[.05,.3],[.12,.55],[.2,.75]][lvl];if(r<L[0])recv({t:'res',r:'perf'});else if(r<L[1])recv({t:'res',r:'block'});else{B.hp-=22*clamp(d.p,1,1.6);recv({t:'res',r:'hit'});if(B.hp<=0)botDown()}},450)}}
+function botLoop(){setInterval(()=>{if(!botOn)return;const t=now();recv({t:'st',hp:B.hp,lv:B.lives,th:Math.sin(t/600)*40});
+ if(playing&&!ended&&B.hp>0&&t>B.at&&t>B.stun&&Math.random()<[.07,.12,.2][lvl]){B.at=t+1700+Math.random()*1500;recv({t:'atk',d:[0,90,45,-45,-90][Math.random()*5|0],m:0})}},150)}
 async function begin(mode){
  let code=mode=='host'?code4():$('code').value.trim().toUpperCase();
  if(mode=='join'&&code.length!=4){$('msg').textContent='Enter the 4-letter room code';return}
@@ -176,14 +197,16 @@ async function begin(mode){
  try{document.documentElement.requestFullscreen&&await document.documentElement.requestFullscreen();screen.orientation.lock('portrait').catch(()=>{})}catch(e){}
  try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
  for(let k=0;k<4;k++){
-  $('msg').innerHTML=mode=='host'?`Room code: <b style="font-size:28px">${code}</b><br>Waiting for opponent…`:mode=='quick'?'Searching for an opponent…':'Connecting…';
-  try{await connect(mode,code);break}catch(e){
+  $('msg').innerHTML=mode=='host'?`Room code: <b style="font-size:28px">${code}</b><br>Waiting for opponent…<br><br><button id="shr" class="alt" style="width:auto;padding:8px 14px;font-size:14px">Share invite link</button>`:mode=='quick'?'Searching for an opponent…':'Connecting…';
+  const sb=$('shr');if(sb)sb.onclick=()=>{const u=location.origin+location.pathname+'?r='+code;if(navigator.share)navigator.share({title:'Saber Duel',text:'Duel me!',url:u}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(u)};
+  try{if(mode=='practice'){botOn=true;send=bot;botLoop();break}await connect(mode,code);break}catch(e){
    if(mode=='host'&&e&&e.type=='unavailable-id'&&k<3){code=code4();continue}
    $('msg').textContent=mode=='join'?'No room found with that code.':'Could not reach the matchmaking server. Check your connection and try again.';$('cancel').textContent='Back';return}}
  $('cancel').style.display='none';
  const iv=setInterval(()=>{if(O.here)return clearInterval(iv);send({t:'hi',c:col})},1000);send({t:'hi',c:col});
- setInterval(()=>{if(O.here)send({t:'p',n:now()})},2000)}
-$('quick').onclick=()=>begin('quick');$('host').onclick=()=>begin('host');$('join').onclick=()=>begin('join');$('cancel').onclick=()=>location.reload();
+ if(botOn)$('png').textContent='practice';setInterval(()=>{if(O.here&&!botOn)send({t:'p',n:now()})},2000)}
+$('lvl').onclick=()=>{lvl=(lvl+1)%3;$('lvl').textContent='Bot: '+['Easy','Normal','Hard'][lvl]};$('prac').onclick=()=>begin('practice');$('quick').onclick=()=>begin('quick');$('host').onclick=()=>begin('host');$('join').onclick=()=>begin('join');$('cancel').onclick=()=>location.reload();
+{const q=new URLSearchParams(location.search).get('r');if(q)$('code').value=q.slice(0,4).toUpperCase()}
 if(window.claude)$('quick').style.display='none';
 frame();
 </script></body></html>
